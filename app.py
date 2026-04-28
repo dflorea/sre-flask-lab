@@ -1,0 +1,131 @@
+import os
+import random
+import time
+from flask import Flask, jsonify, request, render_template_string
+
+app = Flask(__name__)
+
+APP_VERSION = os.getenv("APP_VERSION", "0.1.0")
+START_TIME = time.time()
+READY = True
+
+
+HTML = """
+<!doctype html>
+<html>
+<head>
+  <title>SRE Flask Lab</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 760px; margin: 40px auto; }
+    button { padding: 10px 14px; margin: 6px 4px; cursor: pointer; }
+    pre { background: #f5f5f5; padding: 16px; border-radius: 8px; white-space: pre-wrap; }
+    input { padding: 8px; width: 80px; }
+  </style>
+</head>
+<body>
+  <h1>SRE Flask Lab</h1>
+  <p>Exercise health, readiness, and simulated work endpoints.</p>
+
+  <button onclick="call('/healthz')">Check /healthz</button>
+  <button onclick="call('/readyz')">Check /readyz</button>
+
+  <h3>/work simulation</h3>
+  <label>Failure %:</label>
+  <input id="fail" type="number" value="10" min="0" max="100">
+  <label>Latency ms:</label>
+  <input id="latency" type="number" value="250" min="0">
+
+  <br><br>
+  <button onclick="callWork()">Call /work</button>
+
+  <h3>Result</h3>
+  <pre id="result">No request yet.</pre>
+
+  <script>
+    async function call(path) {
+      const started = performance.now();
+      try {
+        const res = await fetch(path);
+        const data = await res.json();
+        const elapsed = Math.round(performance.now() - started);
+        document.getElementById("result").textContent =
+          JSON.stringify({ status: res.status, elapsed_ms: elapsed, body: data }, null, 2);
+      } catch (err) {
+        document.getElementById("result").textContent = err.toString();
+      }
+    }
+
+    async function callWork() {
+      const fail = document.getElementById("fail").value;
+      const latency = document.getElementById("latency").value;
+      call(`/work?failure_rate=${fail}&latency_ms=${latency}`);
+    }
+  </script>
+</body>
+</html>
+"""
+
+
+@app.route("/")
+def index():
+    return render_template_string(HTML)
+
+
+@app.route("/healthz")
+def healthz():
+    return jsonify({
+        "status": "ok",
+        "service": "sre-flask-lab",
+        "version": APP_VERSION,
+        "uptime_seconds": round(time.time() - START_TIME, 2)
+    }), 200
+
+
+@app.route("/readyz")
+def readyz():
+    if READY:
+        return jsonify({
+            "status": "ready",
+            "message": "Service is ready to receive traffic"
+        }), 200
+
+    return jsonify({
+        "status": "not_ready",
+        "message": "Service is alive but should not receive traffic"
+    }), 503
+
+
+@app.route("/work")
+def work():
+    failure_rate = float(request.args.get("failure_rate", 0))
+    latency_ms = int(request.args.get("latency_ms", 0))
+
+    failure_rate = max(0, min(failure_rate, 100))
+    latency_ms = max(0, latency_ms)
+
+    started = time.time()
+
+    if latency_ms:
+        time.sleep(latency_ms / 1000)
+
+    if random.random() < failure_rate / 100:
+        return jsonify({
+            "status": "error",
+            "message": "Simulated failure",
+            "failure_rate": failure_rate,
+            "latency_ms": latency_ms,
+            "duration_ms": round((time.time() - started) * 1000, 2)
+        }), 500
+
+    return jsonify({
+        "status": "success",
+        "message": "Work completed",
+        "failure_rate": failure_rate,
+        "latency_ms": latency_ms,
+        "duration_ms": round((time.time() - started) * 1000, 2)
+    }), 200
+
+
+if __name__ == "__main__":
+    port = int(os.getenv("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
