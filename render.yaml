@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: sre-flask-lab
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    healthCheckPath: /healthz
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: APP_VERSION
+        value: 0.1.0
