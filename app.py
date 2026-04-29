@@ -2,6 +2,7 @@ import os
 import random
 import time
 import logging
+import json
 from flask import Flask, jsonify, request, render_template_string
 
 app = Flask(__name__)
@@ -132,21 +133,23 @@ def work():
 def before_request():
     request.start_time = time.time()
 
-
 @app.after_request
 def after_request(response):
     duration_ms = round((time.time() - request.start_time) * 1000, 2)
 
-    app.logger.info(
-        "method=%s path=%s status=%s duration_ms=%s",
-        request.method,
-        request.path,
-        response.status_code,
-        duration_ms
-    )
+    log_entry = {
+        "event": "request_completed",
+        "method": request.method,
+        "path": request.path,
+        "status": response.status_code,
+        "duration_ms": duration_ms,
+        "remote_addr": request.headers.get("X-Forwarded-For", request.remote_addr),
+        "user_agent": request.headers.get("User-Agent"),
+    }
+
+    app.logger.info(json.dumps(log_entry))
 
     return response
-
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))
