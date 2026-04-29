@@ -5,6 +5,8 @@ from flask import Flask, jsonify, request, render_template_string
 
 app = Flask(__name__)
 
+app.logger.setLevel(logging.INFO)
+
 APP_VERSION = os.getenv("APP_VERSION", "0.1.0")
 START_TIME = time.time()
 READY = True
