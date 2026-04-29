@@ -125,6 +125,25 @@ def work():
         "duration_ms": round((time.time() - started) * 1000, 2)
     }), 200
 
+@app.before_request
+def before_request():
+    request.start_time = time.time()
+
+
+@app.after_request
+def after_request(response):
+    duration_ms = round((time.time() - request.start_time) * 1000, 2)
+
+    app.logger.info(
+        "method=%s path=%s status=%s duration_ms=%s",
+        request.method,
+        request.path,
+        response.status_code,
+        duration_ms
+    )
+
+    return response
+
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))
