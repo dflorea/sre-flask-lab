@@ -47,6 +47,8 @@ HTML = """
 
   <button onclick="call('/healthz')">Check /healthz</button>
   <button onclick="call('/readyz')">Check /readyz</button>
+  <button onclick="call('/healthz')">Check /healthz</button>
+  <button onclick="call('/readyz')">Check /readyz</button>
 
   <h3>/work simulation</h3>
   <label>Failure %:</label>
@@ -147,6 +149,43 @@ def work():
 @app.route("/metrics")
 def metrics():
     return generate_latest(), 200
+
+@app.route("/dashboard")
+def dashboard():
+    total_requests = REQUEST_COUNT._value.get()
+    failed_requests = REQUEST_FAILURES._value.get()
+
+    successful_requests = total_requests - failed_requests
+
+    success_rate = (
+        round((successful_requests / total_requests) * 100, 2)
+        if total_requests > 0 else 100.0
+    )
+
+    histogram_samples = REQUEST_LATENCY.collect()[0].samples
+
+    latency_sum = 0
+    latency_count = 0
+
+    for sample in histogram_samples:
+        if sample.name.endswith("_sum"):
+            latency_sum = sample.value
+        elif sample.name.endswith("_count"):
+            latency_count = sample.value
+
+    avg_latency_ms = (
+        round((latency_sum / latency_count) * 1000, 2)
+        if latency_count > 0 else 0
+    )
+
+    return jsonify({
+        "service": "sre-flask-lab",
+        "total_requests": int(total_requests),
+        "successful_requests": int(successful_requests),
+        "failed_requests": int(failed_requests),
+        "success_rate_percent": success_rate,
+        "average_latency_ms": avg_latency_ms
+    }), 200
 
 @app.before_request
 def before_request():
