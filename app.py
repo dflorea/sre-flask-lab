@@ -47,8 +47,8 @@ HTML = """
 
   <button onclick="call('/healthz')">Check /healthz</button>
   <button onclick="call('/readyz')">Check /readyz</button>
-  <button onclick="call('/healthz')">Check /healthz</button>
-  <button onclick="call('/readyz')">Check /readyz</button>
+  <button onclick="call('/metrics')">Check /metrics</button>
+  <button onclick="call('/dashboard')">Check /dashboard</button>
 
   <h3>/work simulation</h3>
   <label>Failure %:</label>
