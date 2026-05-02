@@ -50,6 +50,7 @@ HTML = """
   <button onclick="call('/metrics')">Check /metrics</button>
   <button onclick="call('/dashboard')">Check /dashboard</button>
   <button onclick="call('/alerts')">Check /alerts</button>
+  <button onclick="call('/error-budget')">Check /error-budget</button>
 
   <h3>/work simulation</h3>
   <label>Failure %:</label>
@@ -228,6 +229,42 @@ def alerts():
             if alert_triggered
             else "SLO healthy"
         )
+    }), 200
+
+@app.route("/error-budget")
+def error_budget():
+    total_requests = REQUEST_COUNT._value.get()
+    failed_requests = REQUEST_FAILURES._value.get()
+
+    SLO_TARGET = 99.0
+    ERROR_BUDGET_PERCENT = 100.0 - SLO_TARGET
+
+    if total_requests == 0:
+        return jsonify({
+            "error_budget_percent": ERROR_BUDGET_PERCENT,
+            "budget_used_percent": 0,
+            "budget_remaining_percent": ERROR_BUDGET_PERCENT
+        }), 200
+
+    actual_failure_rate = (failed_requests / total_requests) * 100
+
+    budget_used_percent = (
+        (actual_failure_rate / ERROR_BUDGET_PERCENT) * 100
+        if ERROR_BUDGET_PERCENT > 0 else 0
+    )
+
+    budget_remaining_percent = max(
+        0,
+        ERROR_BUDGET_PERCENT - actual_failure_rate
+    )
+
+    return jsonify({
+        "service": "sre-flask-lab",
+        "slo_target_percent": SLO_TARGET,
+        "error_budget_percent": ERROR_BUDGET_PERCENT,
+        "actual_failure_rate_percent": round(actual_failure_rate, 2),
+        "budget_used_percent": round(budget_used_percent, 2),
+        "budget_remaining_percent": round(budget_remaining_percent, 2)
     }), 200
 
 @app.before_request
