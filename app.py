@@ -4,6 +4,7 @@ import time
 import logging
 import json
 from flask import Flask, jsonify, request, render_template_string
+from prometheus_client import Counter, Histogram, generate_latest
 
 app = Flask(__name__)
 
@@ -13,6 +14,20 @@ APP_VERSION = os.getenv("APP_VERSION", "0.1.0")
 START_TIME = time.time()
 READY = True
 
+REQUEST_COUNT = Counter(
+    "http_requests_total",
+    "Total HTTP requests"
+)
+
+REQUEST_FAILURES = Counter(
+    "http_request_failures_total",
+    "Total failed HTTP requests"
+)
+
+REQUEST_LATENCY = Histogram(
+    "http_request_duration_seconds",
+    "Request latency"
+)
 
 HTML = """
 <!doctype html>
@@ -129,6 +144,10 @@ def work():
         "duration_ms": round((time.time() - started) * 1000, 2)
     }), 200
 
+@app.route("/metrics")
+def metrics():
+    return generate_latest(), 200
+
 @app.before_request
 def before_request():
     request.start_time = time.time()
@@ -148,6 +167,12 @@ def after_request(response):
     }
 
     app.logger.info(json.dumps(log_entry))
+
+    REQUEST_COUNT.inc()
+    REQUEST_LATENCY.observe(duration_ms / 1000)
+
+    if response.status_code >= 500:
+        REQUEST_FAILURES.inc()
 
     return response
 
