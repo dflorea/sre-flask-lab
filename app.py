@@ -67,7 +67,16 @@ HTML = """
       const started = performance.now();
       try {
         const res = await fetch(path);
-        const data = await res.json();
+
+        const contentType = res.headers.get("content-type");
+
+        let data;
+        if (contentType && contentType.includes("application/json")) {
+          data = await res.json();
+        } else {
+          data = await res.text();
+        }
+
         const elapsed = Math.round(performance.now() - started);
         document.getElementById("result").textContent =
           JSON.stringify({ status: res.status, elapsed_ms: elapsed, body: data }, null, 2);
