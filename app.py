@@ -49,6 +49,7 @@ HTML = """
   <button onclick="call('/readyz')">Check /readyz</button>
   <button onclick="call('/metrics')">Check /metrics</button>
   <button onclick="call('/dashboard')">Check /dashboard</button>
+  <button onclick="call('/alerts')">Check /alerts</button>
 
   <h3>/work simulation</h3>
   <label>Failure %:</label>
@@ -195,6 +196,39 @@ def dashboard():
         "success_rate_percent": success_rate,
         "average_latency_ms": avg_latency_ms
     }), 200
+
+    @app.route("/alerts")
+    def alerts():
+        total_requests = REQUEST_COUNT._value.get()
+        failed_requests = REQUEST_FAILURES._value.get()
+
+        if total_requests == 0:
+            return jsonify({
+                "alert": False,
+                "status": "insufficient_data",
+                "message": "No requests recorded yet"
+            }), 200
+
+        failure_rate = failed_requests / total_requests
+        success_rate = (1 - failure_rate) * 100
+
+        SLO_TARGET = 99.0
+
+        alert_triggered = success_rate < SLO_TARGET
+
+        return jsonify({
+            "service": "sre-flask-lab",
+            "alert": alert_triggered,
+            "slo_target_percent": SLO_TARGET,
+            "success_rate_percent": round(success_rate, 2),
+            "failed_requests": int(failed_requests),
+            "total_requests": int(total_requests),
+            "reason": (
+                "SLO breached: success rate below target"
+                if alert_triggered
+                else "SLO healthy"
+            )
+        }), 200
 
 @app.before_request
 def before_request():
