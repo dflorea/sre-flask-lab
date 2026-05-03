@@ -259,8 +259,7 @@ def alerts():
     SLO_TARGET = 99.0
 
     alert_triggered = success_rate < SLO_TARGET
-
-    return jsonify({
+    payload = {
         "service": "sre-flask-lab",
         "alert": alert_triggered,
         "slo_target_percent": SLO_TARGET,
@@ -272,7 +271,13 @@ def alerts():
             if alert_triggered
             else "SLO healthy"
         )
-    }), 200
+    }
+
+    if alert_triggered and not SAFE_MODE:
+        payload["recommended_action"] = "run remediation"
+        payload["autonomy_stage"] = "recommend"
+
+    return jsonify(payload), 200
 
 @app.route("/error-budget")
 def error_budget():
