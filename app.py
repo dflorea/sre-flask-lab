@@ -52,7 +52,7 @@ HTML = """
   <button onclick="call('/dashboard')">Check /dashboard</button>
   <button onclick="call('/alerts')">Check /alerts</button>
   <button onclick="call('/error-budget')">Check /error-budget</button>
-  <button id="remediate-btn" onclick="call('/remediate')">Run Remediation</button>
+  <button id="remediate-btn" onclick="call('/remediate')">Run remediation</button>
 
   <h3>/work simulation</h3>
   <label>Failure %:</label>
