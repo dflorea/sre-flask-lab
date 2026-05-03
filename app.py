@@ -13,6 +13,7 @@ app.logger.setLevel(logging.INFO)
 APP_VERSION = os.getenv("APP_VERSION", "0.1.0")
 START_TIME = time.time()
 READY = True
+SAFE_MODE = False
 
 REQUEST_COUNT = Counter(
     "http_requests_total",
@@ -51,6 +52,7 @@ HTML = """
   <button onclick="call('/dashboard')">Check /dashboard</button>
   <button onclick="call('/alerts')">Check /alerts</button>
   <button onclick="call('/error-budget')">Check /error-budget</button>
+  <button id="remediate-btn" onclick="call('/remediate')">Run Remediation</button>
 
   <h3>/work simulation</h3>
   <label>Failure %:</label>
@@ -77,6 +79,16 @@ HTML = """
           data = await res.json();
         } else {
           data = await res.text();
+        }
+
+        const remediationBtn = document.getElementById("remediate-btn");
+        if (remediationBtn && path === "/alerts" && data && data.alert === true) {
+          remediationBtn.style.background = "#dc2626";
+          remediationBtn.style.color = "white";
+        }
+        if (remediationBtn && path === "/remediate" && res.ok) {
+          remediationBtn.style.background = "#16a34a";
+          remediationBtn.style.color = "white";
         }
 
         const elapsed = Math.round(performance.now() - started);
@@ -135,6 +147,10 @@ def work():
     failure_rate = max(0, min(failure_rate, 100))
     latency_ms = max(0, latency_ms)
 
+    if SAFE_MODE:
+        failure_rate = 0
+        latency_ms = min(latency_ms, 100)
+
     started = time.time()
 
     if latency_ms:
@@ -155,6 +171,17 @@ def work():
         "failure_rate": failure_rate,
         "latency_ms": latency_ms,
         "duration_ms": round((time.time() - started) * 1000, 2)
+    }), 200
+
+
+@app.route("/remediate")
+def remediate():
+    global SAFE_MODE
+    SAFE_MODE = True
+    return jsonify({
+        "remediated": True,
+        "safe_mode": True,
+        "reason": "Manual remediation activated"
     }), 200
 
 @app.route("/metrics")
