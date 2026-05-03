@@ -3,6 +3,7 @@ import random
 import time
 import logging
 import json
+from pathlib import Path
 from flask import Flask, jsonify, request, render_template_string
 from prometheus_client import Counter, Histogram, generate_latest
 
@@ -13,7 +14,19 @@ app.logger.setLevel(logging.INFO)
 APP_VERSION = os.getenv("APP_VERSION", "0.1.0")
 START_TIME = time.time()
 READY = True
+SAFE_MODE_FILE = Path(os.getenv("SAFE_MODE_FILE", "/tmp/sre-flask-lab-safe-mode"))
 SAFE_MODE = False
+
+
+def load_safe_mode() -> bool:
+    try:
+        return SAFE_MODE_FILE.read_text().strip().lower() == "true"
+    except FileNotFoundError:
+        return False
+
+
+def persist_safe_mode(enabled: bool) -> None:
+    SAFE_MODE_FILE.write_text("true" if enabled else "false")
 
 REQUEST_COUNT = Counter(
     "http_requests_total",
@@ -146,6 +159,8 @@ def readyz():
 
 @app.route("/work")
 def work():
+    global SAFE_MODE
+    SAFE_MODE = load_safe_mode()
     failure_rate = float(request.args.get("failure_rate", 0))
     latency_ms = int(request.args.get("latency_ms", 0))
 
@@ -183,6 +198,7 @@ def work():
 def remediate():
     global SAFE_MODE
     SAFE_MODE = True
+    persist_safe_mode(True)
     return jsonify({
         "remediated": True,
         "safe_mode": True,
@@ -194,6 +210,7 @@ def remediate():
 def unremediate():
     global SAFE_MODE
     SAFE_MODE = False
+    persist_safe_mode(False)
     return jsonify({
         "remediated": False,
         "safe_mode": False,
@@ -243,6 +260,8 @@ def dashboard():
 
 @app.route("/alerts")
 def alerts():
+    global SAFE_MODE
+    SAFE_MODE = load_safe_mode()
     total_requests = REQUEST_COUNT._value.get()
     failed_requests = REQUEST_FAILURES._value.get()
 
