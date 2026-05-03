@@ -53,6 +53,7 @@ HTML = """
   <button onclick="call('/alerts')">Check /alerts</button>
   <button onclick="call('/error-budget')">Check /error-budget</button>
   <button id="remediate-btn" onclick="call('/remediate')">Run remediation</button>
+  <button id="unremediate-btn" onclick="call('/unremediate')">Undo remediation</button>
 
   <h3>/work simulation</h3>
   <label>Failure %:</label>
@@ -89,6 +90,10 @@ HTML = """
         if (remediationBtn && path === "/remediate" && res.ok) {
           remediationBtn.style.background = "#16a34a";
           remediationBtn.style.color = "white";
+        }
+        if (remediationBtn && path === "/unremediate" && res.ok) {
+          remediationBtn.style.background = "";
+          remediationBtn.style.color = "";
         }
 
         const elapsed = Math.round(performance.now() - started);
@@ -182,6 +187,17 @@ def remediate():
         "remediated": True,
         "safe_mode": True,
         "reason": "Manual remediation activated"
+    }), 200
+
+
+@app.route("/unremediate")
+def unremediate():
+    global SAFE_MODE
+    SAFE_MODE = False
+    return jsonify({
+        "remediated": False,
+        "safe_mode": False,
+        "reason": "Manual remediation cleared"
     }), 200
 
 @app.route("/metrics")
