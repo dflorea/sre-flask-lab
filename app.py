@@ -43,6 +43,17 @@ REQUEST_LATENCY = Histogram(
     "Request latency"
 )
 
+_SKIP_PROMETHEUS_PATHS = frozenset({"/reset-simulation"})
+
+
+def reset_simulation_metrics() -> None:
+    REQUEST_COUNT.reset()
+    REQUEST_FAILURES.reset()
+    REQUEST_LATENCY._sum.set(0)
+    for bucket in REQUEST_LATENCY._buckets:
+        bucket.set(0)
+
+
 HTML = """
 <!doctype html>
 <html>
@@ -67,6 +78,7 @@ HTML = """
   <button onclick="call('/error-budget')">Check /error-budget</button>
   <button id="remediate-btn" onclick="call('/remediate')">Run remediation</button>
   <button id="unremediate-btn" onclick="call('/unremediate')">Undo remediation</button>
+  <button onclick="call('/reset-simulation')">Reset simulation</button>
 
   <h3>/work simulation</h3>
   <label>Failure %:</label>
@@ -217,6 +229,17 @@ def unremediate():
         "reason": "Manual remediation cleared"
     }), 200
 
+
+@app.route("/reset-simulation")
+def reset_simulation():
+    reset_simulation_metrics()
+    return jsonify({
+        "reset": True,
+        "total_requests": 0,
+        "failed_requests": 0,
+        "reason": "Simulation metrics cleared"
+    }), 200
+
 @app.route("/metrics")
 def metrics():
     return generate_latest(), 200
@@ -354,11 +377,12 @@ def after_request(response):
 
     app.logger.info(json.dumps(log_entry))
 
-    REQUEST_COUNT.inc()
-    REQUEST_LATENCY.observe(duration_ms / 1000)
+    if request.path not in _SKIP_PROMETHEUS_PATHS:
+        REQUEST_COUNT.inc()
+        REQUEST_LATENCY.observe(duration_ms / 1000)
 
-    if response.status_code >= 500:
-        REQUEST_FAILURES.inc()
+        if response.status_code >= 500:
+            REQUEST_FAILURES.inc()
 
     return response
 
